@@ -1,0 +1,130 @@
+[
+  {
+    "id": "gcp/google_compute_instance/web-1",
+    "provider": "gcp",
+    "type": "google_compute_instance",
+    "cloud_id": "web-1",
+    "name": "web-1",
+    "attributes": {
+      "machine_type": "e2-standard-2",
+      "zone": "us-central1-a",
+      "deletion_protection": true,
+      "can_ip_forward": false,
+      "description": "web frontend"
+    },
+    "tags": { "env": "prod", "owner": "jane" }
+  },
+  {
+    "id": "gcp/google_compute_firewall/allow-ssh",
+    "provider": "gcp",
+    "type": "google_compute_firewall",
+    "cloud_id": "allow-ssh",
+    "name": "allow-ssh",
+    "attributes": {
+      "direction": "INGRESS",
+      "priority": 1000,
+      "allowed": ["tcp:22"],
+      "disabled": false
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_compute_network/main-vpc",
+    "provider": "gcp",
+    "type": "google_compute_network",
+    "cloud_id": "main-vpc",
+    "name": "main-vpc",
+    "attributes": {
+      "auto_create_subnetworks": false,
+      "routing_mode": "REGIONAL",
+      "description": "primary VPC"
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_compute_subnetwork/main-subnet",
+    "provider": "gcp",
+    "type": "google_compute_subnetwork",
+    "cloud_id": "main-subnet",
+    "name": "main-subnet",
+    "attributes": {
+      "ip_cidr_range": "10.0.0.0/24",
+      "region": "us-central1",
+      "private_ip_google_access": true
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_compute_disk/data-disk-1",
+    "provider": "gcp",
+    "type": "google_compute_disk",
+    "cloud_id": "data-disk-1",
+    "name": "data-disk-1",
+    "attributes": {
+      "size_gb": 200,
+      "type": "pd-ssd",
+      "zone": "us-central1-a"
+    },
+    "tags": { "purpose": "database" }
+  },
+  {
+    "id": "gcp/google_compute_address/lb-static-ip",
+    "provider": "gcp",
+    "type": "google_compute_address",
+    "cloud_id": "lb-static-ip",
+    "name": "lb-static-ip",
+    "attributes": {
+      "address_type": "EXTERNAL",
+      "region": "us-central1"
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_service_account/app-service",
+    "provider": "gcp",
+    "type": "google_service_account",
+    "cloud_id": "app-service",
+    "name": "app-service",
+    "attributes": {
+      "display_name": "Application Service Account",
+      "description": "used by the app backend",
+      "disabled": false
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_pubsub_topic/app-events",
+    "provider": "gcp",
+    "type": "google_pubsub_topic",
+    "cloud_id": "app-events",
+    "name": "app-events",
+    "attributes": {
+      "message_retention_duration": "604800s"
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_bigquery_dataset/analytics",
+    "provider": "gcp",
+    "type": "google_bigquery_dataset",
+    "cloud_id": "analytics",
+    "name": "analytics",
+    "attributes": {
+      "location": "US",
+      "description": "analytics warehouse"
+    },
+    "tags": {}
+  },
+  {
+    "id": "gcp/google_compute_instance/orphan-vm",
+    "provider": "gcp",
+    "type": "google_compute_instance",
+    "cloud_id": "orphan-vm",
+    "name": "orphan-vm",
+    "attributes": {
+      "machine_type": "e2-micro",
+      "zone": "us-central1-a"
+    },
+    "tags": { "created_by": "manual" }
+  }
+]

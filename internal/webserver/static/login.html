@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>driftgcp — sign in</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --border: #262b36;
+    --text: #e6e9ef;
+    --muted: #8a91a3;
+    --accent: #4f8cff;
+    --crit: #e05c5c;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    padding: 1.5rem;
+  }
+  .card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.75rem;
+  }
+  h1 { font-size: 1.15rem; margin: 0 0 0.2rem; }
+  .subtitle { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.85rem; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0 0 0.3rem; }
+  input[type=text], input[type=password] {
+    width: 100%;
+    padding: 0.55rem 0.6rem;
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    width: 100%;
+    padding: 0.6rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .error {
+    color: var(--crit);
+    font-size: 0.82rem;
+    margin: -0.5rem 0 1rem;
+    min-height: 1em;
+  }
+</style>
+</head>
+<body>
+  <form class="card" id="login-form" autocomplete="off">
+    <h1>driftgcp</h1>
+    <p class="subtitle">Sign in to run a drift scan.</p>
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" required />
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required />
+    <div class="error" id="error"></div>
+    <button type="submit" id="submit">Sign in</button>
+  </form>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const errorEl = document.getElementById("error");
+    const submitBtn = document.getElementById("submit");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.textContent = "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing in…";
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value,
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          errorEl.textContent = body.error || "Sign in failed.";
+          return;
+        }
+
+        window.location.href = "/";
+      } catch (err) {
+        errorEl.textContent = "Could not reach the server.";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign in";
+      }
+    });
+  </script>
+</body>
+</html>

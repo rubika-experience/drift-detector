@@ -1,0 +1,80 @@
+# In-cluster Postgres for driftgcp's auth (users/teams/sessions/team_state_files).
+# Deliberately a plain pod + PVC, not Cloud SQL, per the QA deploy decision:
+# this is scoped-down infra for one internal tool, not a shared managed DB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: driftgcp-postgres-data
+  namespace: driftgcp
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driftgcp-postgres
+  namespace: driftgcp
+  labels:
+    app: driftgcp-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single ReadWriteOnce volume — never run two pods at once
+  selector:
+    matchLabels:
+      app: driftgcp-postgres
+  template:
+    metadata:
+      labels:
+        app: driftgcp-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          envFrom:
+            - secretRef:
+                name: driftgcp-postgres-secret
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata # avoid writing directly into the volume root (lost+found dir issue)
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "driftgcp"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "driftgcp"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: driftgcp-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driftgcp-postgres
+  namespace: driftgcp
+spec:
+  selector:
+    app: driftgcp-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

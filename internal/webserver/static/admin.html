@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>driftgcp — team admin</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1b202b;
+    --border: #262b36;
+    --text: #e6e9ef;
+    --muted: #8a91a3;
+    --accent: #4f8cff;
+    --accent-ink: #ffffff;
+    --role-admin-bg: rgba(122,139,255,0.15);
+    --role-admin-fg: #7a8bff;
+    --role-member-bg: rgba(79,140,255,0.15);
+    --role-member-fg: #4f8cff;
+    --crit: #e05c5c;
+    --ok: #3ecf8e;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); padding: 2.5rem 2rem; }
+  a.back { color: var(--muted); font-size: 0.82rem; text-decoration: none; }
+  h1 { font-size: 1.9rem; font-weight: 700; margin: 1.25rem 0 0.3rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); margin: 0 0 1.75rem; font-size: 0.95rem; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 14px;
+    max-width: 1040px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-head .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); flex: 0 0 auto; }
+  .card-head .title {
+    flex: 1;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .btn-accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-accent:hover { filter: brightness(1.05); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .add-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .add-row input, .add-row select {
+    padding: 0.5rem 0.65rem;
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 0.87rem;
+  }
+  .add-row input[type=text] { flex: 1; min-width: 200px; }
+
+  .member-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .member-row:last-child { border-bottom: none; }
+  .member-email { font-size: 1.05rem; font-weight: 600; flex: 1; }
+  .member-email .you { color: var(--muted); font-weight: 400; margin-left: 0.3rem; }
+  .member-actions { display: flex; align-items: center; gap: 0.6rem; }
+
+  .role-pill {
+    display: inline-block;
+    padding: 0.28rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .role-pill.admin { background: var(--role-admin-bg); color: var(--role-admin-fg); }
+  .role-pill.member { background: var(--role-member-bg); color: var(--role-member-fg); }
+
+  select.role-select {
+    padding: 0.4rem 0.6rem;
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+  select.role-select:disabled { opacity: 0.55; cursor: default; }
+
+  button.remove-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--crit);
+    border-radius: 7px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.remove-btn:hover { background: rgba(224,92,92,0.08); }
+
+  .err { color: var(--crit); font-size: 0.8rem; padding: 0 1.4rem 0.8rem; }
+
+  /* ---- state files card (simpler, reuses the same shell) ---- */
+  .sf-card { border-left-color: var(--ok); }
+  .sf-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .sf-row:last-child { border-bottom: none; }
+  .sf-row .label { font-weight: 600; width: 180px; flex: 0 0 auto; }
+  .sf-row .path { color: var(--muted); flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
+
+  #denied { color: var(--muted); }
+</style>
+</head>
+<body>
+  <a class="back" href="/">← Back to dashboard</a>
+  <h1>Team Members</h1>
+  <p class="subtitle" id="subtitle">Manage who can access driftgcp and their role.</p>
+
+  <div id="adminPanel" style="display:none;">
+    <div class="card">
+      <div class="card-head">
+        <span class="dot"></span>
+        <span class="title">MEMBERS (<span id="memberCount">0</span>)</span>
+        <button class="btn-accent" id="addUserToggleBtn">+ Add team member</button>
+      </div>
+      <div class="add-row" id="addUserForm" style="display:none;">
+        <input type="text" id="newUserEmail" placeholder="teammate@example.com" />
+        <input type="password" id="newUserPassword" placeholder="password" />
+        <select id="newUserRole">
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn-accent" id="addUserBtn">Add</button>
+        <button class="btn-ghost" id="cancelAddUserBtn">Cancel</button>
+      </div>
+      <div class="err" id="adminUsersError"></div>
+      <div id="membersList"></div>
+    </div>
+
+    <div class="card sf-card">
+      <div class="card-head">
+        <span class="dot" style="background:var(--ok);"></span>
+        <span class="title">STATE FILES (<span id="fileCount">0</span>)</span>
+        <button class="btn-accent" id="addFileToggleBtn">+ Add state file</button>
+      </div>
+      <div class="add-row" id="addFileForm" style="display:none;">
+        <input type="text" id="newFileLabel" placeholder="label" style="max-width:160px;" />
+        <input type="text" id="newFilePath" placeholder="path/to/terraform.tfstate" />
+        <button class="btn-accent" id="addFileBtn">Add</button>
+        <button class="btn-ghost" id="cancelAddFileBtn">Cancel</button>
+      </div>
+      <div class="err" id="adminStateFilesError"></div>
+      <div id="stateFilesList"></div>
+    </div>
+  </div>
+
+  <p id="denied" style="display:none;">You need admin access on your team to see this page. <a class="back" href="/">Back to dashboard</a></p>
+
+<script>
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  let myEmail = '';
+  let myID = null;
+
+  async function loadMe() {
+    try {
+      const resp = await fetch('/api/me');
+      const me = await resp.json();
+      if (!me.db_mode || me.role !== 'admin') {
+        document.getElementById('denied').style.display = 'block';
+        return;
+      }
+      myEmail = me.email;
+      document.getElementById('subtitle').textContent = `${me.email} · team: ${me.team_name}`;
+      document.getElementById('adminPanel').style.display = 'block';
+      loadMembers();
+      loadStateFiles();
+    } catch (err) {
+      document.getElementById('denied').style.display = 'block';
+    }
+  }
+
+  function toggleForm(btnId, formId, cancelId) {
+    const btn = document.getElementById(btnId);
+    const form = document.getElementById(formId);
+    btn.addEventListener('click', () => { form.style.display = 'flex'; btn.style.display = 'none'; });
+    document.getElementById(cancelId).addEventListener('click', () => { form.style.display = 'none'; btn.style.display = 'inline-block'; });
+  }
+  toggleForm('addUserToggleBtn', 'addUserForm', 'cancelAddUserBtn');
+  toggleForm('addFileToggleBtn', 'addFileForm', 'cancelAddFileBtn');
+
+  async function loadMembers() {
+    const list = document.getElementById('membersList');
+    const errorEl = document.getElementById('adminUsersError');
+    errorEl.textContent = '';
+    try {
+      const resp = await fetch('/api/admin/users');
+      const users = await resp.json();
+      document.getElementById('memberCount').textContent = (users || []).length;
+
+      list.innerHTML = (users || []).map(u => {
+        const isYou = u.email === myEmail;
+        if (isYou) myID = u.user_id;
+        const pillClass = u.role === 'admin' ? 'admin' : 'member';
+        const pillLabel = u.role === 'admin' ? 'Admin' : 'Member';
+        return `
+          <div class="member-row" data-id="${u.user_id}">
+            <div class="member-email">${esc(u.email)}${isYou ? '<span class="you">(you)</span>' : ''}</div>
+            <div class="member-actions">
+              <span class="role-pill ${pillClass}">${pillLabel}</span>
+              <select class="role-select" data-id="${u.user_id}" ${isYou ? 'disabled' : ''}>
+                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                <option value="member" ${u.role === 'member' ? 'selected' : ''}>Member</option>
+              </select>
+              ${isYou ? '' : `<button class="remove-btn" data-id="${u.user_id}">Remove</button>`}
+            </div>
+          </div>`;
+      }).join('');
+
+      list.querySelectorAll('.role-select').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          try {
+            const resp = await fetch('/api/admin/users/' + sel.dataset.id, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role: sel.value }),
+            });
+            if (!resp.ok) {
+              const data = await resp.json().catch(() => ({}));
+              throw new Error(data.error || ('HTTP ' + resp.status));
+            }
+            loadMembers();
+          } catch (err) {
+            errorEl.textContent = err.message;
+            loadMembers();
+          }
+        });
+      });
+
+      list.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            const resp = await fetch('/api/admin/users/' + btn.dataset.id, { method: 'DELETE' });
+            if (!resp.ok && resp.status !== 204) {
+              const data = await resp.json().catch(() => ({}));
+              throw new Error(data.error || ('HTTP ' + resp.status));
+            }
+            loadMembers();
+          } catch (err) {
+            errorEl.textContent = err.message;
+          }
+        });
+      });
+    } catch (err) {
+      list.innerHTML = `<div class="member-row">failed to load</div>`;
+    }
+  }
+
+  document.getElementById('addUserBtn').addEventListener('click', async () => {
+    const errorEl = document.getElementById('adminUsersError');
+    errorEl.textContent = '';
+    const email = document.getElementById('newUserEmail').value.trim();
+    const password = document.getElementById('newUserPassword').value;
+    const role = document.getElementById('newUserRole').value;
+    if (!email || !password) {
+      errorEl.textContent = 'email and password are required';
+      return;
+    }
+    try {
+      const resp = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+      document.getElementById('newUserEmail').value = '';
+      document.getElementById('newUserPassword').value = '';
+      document.getElementById('addUserForm').style.display = 'none';
+      document.getElementById('addUserToggleBtn').style.display = 'inline-block';
+      loadMembers();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
+
+  async function loadStateFiles() {
+    const list = document.getElementById('stateFilesList');
+    try {
+      const resp = await fetch('/api/admin/state-files');
+      const files = await resp.json();
+      document.getElementById('fileCount').textContent = (files || []).length;
+      list.innerHTML = (files || []).map(f => `
+        <div class="sf-row" data-id="${f.id}">
+          <span class="label">${esc(f.label)}</span>
+          <span class="path">${esc(f.path)}</span>
+          <button class="remove-btn" data-id="${f.id}">Remove</button>
+        </div>`).join('');
+      list.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            const resp = await fetch('/api/admin/state-files?id=' + encodeURIComponent(btn.dataset.id), { method: 'DELETE' });
+            if (!resp.ok && resp.status !== 204) throw new Error('HTTP ' + resp.status);
+            loadStateFiles();
+          } catch (err) {
+            document.getElementById('adminStateFilesError').textContent = err.message;
+          }
+        });
+      });
+    } catch (err) {
+      list.innerHTML = `<div class="sf-row">failed to load</div>`;
+    }
+  }
+
+  document.getElementById('addFileBtn').addEventListener('click', async () => {
+    const errorEl = document.getElementById('adminStateFilesError');
+    errorEl.textContent = '';
+    const label = document.getElementById('newFileLabel').value.trim();
+    const path = document.getElementById('newFilePath').value.trim();
+    if (!label || !path) {
+      errorEl.textContent = 'label and path are required';
+      return;
+    }
+    try {
+      const resp = await fetch('/api/admin/state-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, path }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+      document.getElementById('newFileLabel').value = '';
+      document.getElementById('newFilePath').value = '';
+      document.getElementById('addFileForm').style.display = 'none';
+      document.getElementById('addFileToggleBtn').style.display = 'inline-block';
+      loadStateFiles();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
+
+  loadMe();
+</script>
+</body>
+</html>

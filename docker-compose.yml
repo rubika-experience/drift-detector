@@ -1,0 +1,34 @@
+# Local Postgres for driftgcp's multi-user auth (internal/store). Not
+# required at all if DATABASE_URL is left unset — driftgcp then falls back
+# to the single DRIFTGCP_USER/DRIFTGCP_PASS demo account with in-memory
+# sessions.
+#
+# Usage:
+#   docker compose up -d
+#   export DATABASE_URL=postgres://driftgcp:driftgcp@localhost:5433/driftgcp?sslmode=disable
+#   export DRIFTGCP_ADMIN_EMAIL=you@example.com
+#   export DRIFTGCP_ADMIN_PASSWORD=choose-a-password
+#   ./driftgcp serve --addr :8080
+#
+# The admin env vars are only read once, to create the first team + admin
+# user when the database is empty. After that, manage further users and
+# team state files from the dashboard's admin panel.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: driftgcp
+      POSTGRES_PASSWORD: driftgcp
+      POSTGRES_DB: driftgcp
+    ports:
+      - "5433:5432"
+    volumes:
+      - driftgcp-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U driftgcp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  driftgcp-postgres-data:

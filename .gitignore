@@ -1,0 +1,8 @@
+/driftgcp
+/dist
+.env
+
+# Unrelated local AI-tool config/cache, not part of this project
+/.agents
+/.aider-desk
+skills-lock.json

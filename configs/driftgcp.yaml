@@ -1,0 +1,12 @@
+# Config for `driftgcp scan --config configs/driftgcp.yaml`.
+# Any value here can be overridden by the equivalent CLI flag.
+#
+# Requires GOOGLE_APPLICATION_CREDENTIALS to point at a GCP service account
+# key with read access to the resources below, e.g.:
+#   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/your-service-account-key.json
+
+state: /path/to/your/terraform.tfstate
+provider: gcp              # "gcp" for a real project, "file" for the bundled demo fixture
+project: your-gcp-project-id
+output: table              # "table" or "json"
+explain: false              # set true (or pass --explain) to get a Claude-generated summary

@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>driftgcp</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --border: #262b36;
+    --text: #e6e9ef;
+    --muted: #8a91a3;
+    --accent: #4f8cff;
+    --ok: #3ecf8e;
+    --warn: #e0a53e;
+    --crit: #e05c5c;
+    --info: #7a8bff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+  .subtitle { color: var(--muted); margin: 0 0 1.5rem; font-size: 0.9rem; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem; max-width: 1200px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], select {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .checkbox-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; }
+  .checkbox-row label { margin: 0; }
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: 0 0 auto; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: #2a2f3b; border: 1px solid var(--border);
+    border-radius: 999px; transition: background 0.15s ease;
+  }
+  .switch .slider::before {
+    content: ""; position: absolute; width: 16px; height: 16px;
+    left: 2px; top: 2px; background: var(--muted);
+    border-radius: 50%; transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .switch input:checked + .slider { background: rgba(79,140,255,0.35); border-color: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent); }
+  .switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button {
+    margin-top: 1.25rem;
+    width: 100%;
+    padding: 0.65rem;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .status-clean { background: rgba(62,207,142,0.15); color: var(--ok); }
+  .status-drift { background: rgba(224,92,92,0.15); color: var(--crit); }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .stat { background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; }
+  .stat .n { font-size: 1.4rem; font-weight: 700; }
+  .stat .l { font-size: 0.75rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+  .sev { padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+  .sev-critical { background: rgba(224,92,92,0.15); color: var(--crit); }
+  .sev-warning { background: rgba(224,165,62,0.15); color: var(--warn); }
+  .sev-info { background: rgba(122,139,255,0.15); color: var(--info); }
+  #error { color: var(--crit); margin-top: 1rem; font-size: 0.85rem; white-space: pre-wrap; }
+  #explanation { margin-top: 1.25rem; padding: 1rem; background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; font-size: 0.88rem; line-height: 1.5; }
+  #explanation h3, #explanation h4 { margin: 1.1rem 0 0.5rem; color: var(--text); }
+  #explanation h3:first-child, #explanation h4:first-child { margin-top: 0; }
+  #explanation p { margin: 0 0 0.75rem; }
+  #explanation ul, #explanation ol { margin: 0 0 0.75rem; padding-left: 1.25rem; }
+  #explanation li { margin-bottom: 0.25rem; }
+  #explanation pre { background: #05070a; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; overflow-x: auto; margin: 0 0 0.75rem; }
+  #explanation code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
+  #explanation p code, #explanation li code { background: #05070a; padding: 0.1rem 0.3rem; border-radius: 4px; }
+  #placeholder { color: var(--muted); font-size: 0.9rem; }
+  .toggle-json { color: var(--accent); font-size: 0.8rem; cursor: pointer; margin-top: 1rem; display: inline-block; }
+  pre#raw-json { display: none; margin-top: 0.75rem; background: #0d0f14; padding: 0.75rem; border-radius: 8px; overflow-x: auto; font-size: 0.78rem; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+  <a href="/api/logout" style="float:right; color:var(--muted); font-size:0.8rem; text-decoration:none;">Sign out</a>
+  <a href="/admin" id="adminLink" style="float:right; margin-right:1.5rem; color:var(--accent); font-size:0.8rem; text-decoration:none; display:none;">Team admin →</a>
+  <h1>driftgcp</h1>
+  <p class="subtitle">Terraform ↔ GCP drift detector</p>
+  <p class="subtitle" id="whoami" style="margin-top:-0.75rem;"></p>
+
+  <div class="layout">
+    <div class="panel">
+      <label for="statePath">Terraform state file</label>
+      <select id="statePath"></select>
+
+      <label for="provider">Provider</label>
+      <select id="provider">
+        <option value="file">file (demo fixture, no GCP needed)</option>
+        <option value="gcp" selected>gcp (live project)</option>
+      </select>
+
+      <div id="fileFields" style="display:none">
+        <label for="cloudFixture">Cloud fixture (actual resources JSON)</label>
+        <input type="text" id="cloudFixture" value="testdata/cloud/sample_actual.json" />
+      </div>
+
+      <div id="gcpFields">
+        <label for="project">GCP project ID</label>
+        <select id="project"></select>
+        <div id="projectError" style="color: var(--crit); font-size: 0.78rem; margin-top: 0.3rem;"></div>
+      </div>
+
+      <div class="checkbox-row">
+        <label class="switch">
+          <input type="checkbox" id="explain" />
+          <span class="slider"></span>
+        </label>
+        <label for="explain">Ask Claude to explain the drift (needs ANTHROPIC_API_KEY on the server)</label>
+      </div>
+
+      <button id="runBtn">Run scan</button>
+      <div id="error"></div>
+    </div>
+
+    <div class="panel">
+      <div id="placeholder">Run a scan to see the report here.</div>
+      <div id="results" style="display:none">
+        <div>
+          State: <code id="rStatePath"></code>
+          &nbsp;·&nbsp;
+          <span id="rStatus" class="status-badge"></span>
+        </div>
+        <div class="summary-grid">
+          <div class="stat"><div class="n" id="sTotal">0</div><div class="l">Total resources</div></div>
+          <div class="stat"><div class="n" id="sMissing">0</div><div class="l">Missing in cloud</div></div>
+          <div class="stat"><div class="n" id="sExtra">0</div><div class="l">Extra in cloud</div></div>
+          <div class="stat"><div class="n" id="sAttr">0</div><div class="l">Attribute changes</div></div>
+          <div class="stat"><div class="n" id="sTags">0</div><div class="l">Tag changes</div></div>
+          <div class="stat"><div class="n" id="sFindings">0</div><div class="l">Total findings</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Kind</th><th>Severity</th><th>Resource</th><th>Field</th><th>Expected</th><th>Actual</th></tr>
+          </thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+        <div id="explanation" style="display:none"></div>
+        <span class="toggle-json" id="toggleJson">Show raw JSON</span>
+        <pre id="raw-json"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="watchPanel" style="max-width:1200px; margin-top:1.5rem;">
+    <h1 style="font-size:1rem; margin-bottom:0.25rem;">Watch mode</h1>
+    <p class="subtitle" style="margin-bottom:1rem;">Re-scan on an interval and alert a webhook on critical drift. Interval and webhook are configured on the server (DRIFTGCP_WATCH_INTERVAL_MINUTES / DRIFTGCP_WEBHOOK_URL). Uses the state file, provider, project and cloud fixture selected above.</p>
+
+    <div class="checkbox-row">
+      <label class="switch">
+        <input type="checkbox" id="watchToggle" />
+        <span class="slider"></span>
+      </label>
+      <label for="watchToggle" id="watchToggleLabel">Watch mode off</label>
+      <span id="watchBadge" class="status-badge" style="display:none;"></span>
+      <span id="watchMeta" style="color: var(--muted); font-size: 0.8rem;"></span>
+    </div>
+    <div id="watchError" style="color: var(--crit); font-size: 0.78rem; margin-top: 0.5rem;"></div>
+
+    <div id="watchLogWrap" style="display:none; margin-top:1rem;">
+      <div style="color: var(--muted); font-size: 0.78rem; margin-bottom: 0.3rem;">Log (most recent last)</div>
+      <pre id="watchLog" style="max-height: 220px; overflow-y: auto; margin: 0; font-size: 0.78rem;"></pre>
+    </div>
+  </div>
+
+<script>
+  const providerSelect = document.getElementById('provider');
+  const fileFields = document.getElementById('fileFields');
+  const gcpFields = document.getElementById('gcpFields');
+  providerSelect.addEventListener('change', () => {
+    const isGcp = providerSelect.value === 'gcp';
+    fileFields.style.display = isGcp ? 'none' : 'block';
+    gcpFields.style.display = isGcp ? 'block' : 'none';
+  });
+
+  const DEFAULT_PROJECT = '';
+
+  async function loadStateFiles() {
+    const select = document.getElementById('statePath');
+    try {
+      const resp = await fetch('/api/state-files');
+      const files = await resp.json();
+      select.innerHTML = '';
+      files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.path;
+        opt.textContent = `${f.label} — ${f.path}`;
+        select.appendChild(opt);
+      });
+    } catch (err) {
+      select.innerHTML = '<option value="">failed to load state files</option>';
+    }
+  }
+
+  async function loadProjects() {
+    const select = document.getElementById('project');
+    const errorEl = document.getElementById('projectError');
+    errorEl.textContent = '';
+    try {
+      const resp = await fetch('/api/projects');
+      const payload = await resp.json();
+      if (!resp.ok) {
+        throw new Error(payload.error || ('HTTP ' + resp.status));
+      }
+      select.innerHTML = '';
+      (payload || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.projectId;
+        opt.textContent = p.name ? `${p.projectId} (${p.name})` : p.projectId;
+        select.appendChild(opt);
+      });
+      if ([...select.options].some(o => o.value === DEFAULT_PROJECT)) {
+        select.value = DEFAULT_PROJECT;
+      }
+    } catch (err) {
+      select.innerHTML = `<option value="${DEFAULT_PROJECT}">${DEFAULT_PROJECT}</option>`;
+      errorEl.textContent = 'Could not list GCP projects (' + err.message + '). Falling back to ' + DEFAULT_PROJECT + '.';
+    }
+  }
+
+  loadStateFiles();
+  loadProjects();
+
+  document.getElementById('toggleJson').addEventListener('click', (e) => {
+    const pre = document.getElementById('raw-json');
+    const show = pre.style.display === 'none';
+    pre.style.display = show ? 'block' : 'none';
+    e.target.textContent = show ? 'Hide raw JSON' : 'Show raw JSON';
+  });
+
+  function severityClass(sev) {
+    return 'sev sev-' + sev;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function inlineFormat(s) {
+    s = escapeHtml(s);
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return s;
+  }
+
+  // Minimal renderer for the small markdown subset Claude's explanation uses:
+  // ## headers, fenced code blocks, -/* and numbered lists, **bold**, `code`.
+  function renderMarkdown(md) {
+    const lines = md.replace(/\r\n/g, '\n').split('\n');
+    let html = '';
+    let listType = null;
+    let paragraphLines = [];
+
+    function flushParagraph() {
+      if (paragraphLines.length) {
+        html += '<p>' + paragraphLines.map(inlineFormat).join('<br>') + '</p>';
+        paragraphLines = [];
+      }
+    }
+    function closeList() {
+      if (listType) {
+        html += '</' + listType + '>';
+        listType = null;
+      }
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+
+      const fence = line.match(/^```(\w*)/);
+      if (fence) {
+        flushParagraph();
+        closeList();
+        i++;
+        const codeLines = [];
+        while (i < lines.length && !lines[i].match(/^```/)) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        i++;
+        html += '<pre><code>' + escapeHtml(codeLines.join('\n')) + '</code></pre>';
+        continue;
+      }
+
+      const heading = line.match(/^(#{2,4})\s+(.*)/);
+      if (heading) {
+        flushParagraph();
+        closeList();
+        const level = Math.min(heading[1].length + 1, 6);
+        html += `<h${level}>${inlineFormat(heading[2])}</h${level}>`;
+        i++;
+        continue;
+      }
+
+      const ul = line.match(/^[-*]\s+(.*)/);
+      if (ul) {
+        flushParagraph();
+        if (listType !== 'ul') { closeList(); html += '<ul>'; listType = 'ul'; }
+        html += '<li>' + inlineFormat(ul[1]) + '</li>';
+        i++;
+        continue;
+      }
+
+      const ol = line.match(/^\d+\.\s+(.*)/);
+      if (ol) {
+        flushParagraph();
+        if (listType !== 'ol') { closeList(); html += '<ol>'; listType = 'ol'; }
+        html += '<li>' + inlineFormat(ol[1]) + '</li>';
+        i++;
+        continue;
+      }
+
+      if (line.trim() === '') {
+        flushParagraph();
+        closeList();
+        i++;
+        continue;
+      }
+
+      paragraphLines.push(line);
+      i++;
+    }
+    flushParagraph();
+    closeList();
+    return html;
+  }
+
+  function renderReport(payload) {
+    const report = payload.report;
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+
+    document.getElementById('rStatePath').textContent = report.state_path;
+    const statusEl = document.getElementById('rStatus');
+    statusEl.textContent = report.status;
+    statusEl.className = 'status-badge ' + (report.status === 'clean' ? 'status-clean' : 'status-drift');
+
+    const s = report.summary;
+    document.getElementById('sTotal').textContent = s.total_resources;
+    document.getElementById('sMissing').textContent = s.missing_in_cloud;
+    document.getElementById('sExtra').textContent = s.extra_in_cloud;
+    document.getElementById('sAttr').textContent = s.attribute_changes;
+    document.getElementById('sTags').textContent = s.tag_changes;
+    document.getElementById('sFindings').textContent = s.total_findings;
+
+    const body = document.getElementById('findingsBody');
+    body.innerHTML = '';
+    (report.findings || []).forEach(f => {
+      const tr = document.createElement('tr');
+      const resourceLabel = f.resource_name ? `${f.resource_name} (${f.resource_type})` : f.resource_type;
+      tr.innerHTML = `
+        <td>${f.kind}</td>
+        <td><span class="${severityClass(f.severity)}">${f.severity}</span></td>
+        <td>${resourceLabel}</td>
+        <td>${f.field || '-'}</td>
+        <td>${f.expected ?? '-'}</td>
+        <td>${f.actual ?? '-'}</td>`;
+      body.appendChild(tr);
+    });
+
+    const explEl = document.getElementById('explanation');
+    if (payload.explanation) {
+      explEl.style.display = 'block';
+      explEl.innerHTML = renderMarkdown(payload.explanation);
+    } else if (payload.explain_error) {
+      explEl.style.display = 'block';
+      explEl.textContent = 'Claude explanation failed: ' + payload.explain_error;
+    } else {
+      explEl.style.display = 'none';
+    }
+
+    document.getElementById('raw-json').textContent = JSON.stringify(report, null, 2);
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('runBtn');
+    const errorEl = document.getElementById('error');
+    errorEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Scanning…';
+
+    const body = {
+      state_path: document.getElementById('statePath').value,
+      provider: providerSelect.value,
+      project: document.getElementById('project').value,
+      cloud_fixture: document.getElementById('cloudFixture').value,
+      explain: document.getElementById('explain').checked,
+    };
+
+    try {
+      const resp = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const payload = await resp.json();
+      if (!resp.ok) {
+        throw new Error(payload.error || ('HTTP ' + resp.status));
+      }
+      renderReport(payload);
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Run scan';
+    }
+  });
+
+  /* ---- watch mode ----
+     Interval and webhook URL are configured server-side only
+     (DRIFTGCP_WATCH_INTERVAL_MINUTES / DRIFTGCP_WEBHOOK_URL) and never sent
+     to or read by this page — the toggle just starts/stops the loop. */
+  let watchPollTimer = null;
+  let watchTransitioning = false;
+
+  function renderWatchStatus(status) {
+    const badge = document.getElementById('watchBadge');
+    const meta = document.getElementById('watchMeta');
+    const toggle = document.getElementById('watchToggle');
+    const toggleLabel = document.getElementById('watchToggleLabel');
+    const logWrap = document.getElementById('watchLogWrap');
+    const logEl = document.getElementById('watchLog');
+
+    if (!watchTransitioning) toggle.checked = status.running;
+
+    badge.style.display = 'inline-block';
+    if (status.running) {
+      toggleLabel.textContent = 'Watch mode on';
+      badge.textContent = 'running';
+      badge.className = 'status-badge status-clean';
+      meta.textContent = `${status.state_path} · every ${status.interval} · started ${status.started_at}` + (status.webhook_enabled ? ' · webhook on' : ' · no webhook set');
+    } else {
+      toggleLabel.textContent = 'Watch mode off';
+      badge.textContent = 'stopped';
+      badge.className = 'status-badge status-drift';
+      meta.textContent = status.started_at ? `last run: ${status.state_path}` : '';
+    }
+
+    if ((status.log || []).length) {
+      logWrap.style.display = 'block';
+      logEl.textContent = status.log.join('\n');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    if (watchPollTimer) clearTimeout(watchPollTimer);
+    watchPollTimer = setTimeout(pollWatchStatus, 3000);
+  }
+
+  async function pollWatchStatus() {
+    try {
+      const resp = await fetch('/api/watch/status');
+      const status = await resp.json();
+      renderWatchStatus(status);
+    } catch (err) {
+      if (watchPollTimer) clearTimeout(watchPollTimer);
+      watchPollTimer = setTimeout(pollWatchStatus, 5000);
+    }
+  }
+
+  document.getElementById('watchToggle').addEventListener('change', async (e) => {
+    const errorEl = document.getElementById('watchError');
+    const toggle = e.target;
+    errorEl.textContent = '';
+    watchTransitioning = true;
+
+    try {
+      if (toggle.checked) {
+        // interval_seconds/webhook_url are left out on purpose: the server
+        // fills both in from its own env config (DRIFTGCP_WATCH_INTERVAL_MINUTES
+        // / DRIFTGCP_WEBHOOK_URL), so the webhook URL never reaches this page.
+        const body = {
+          state_path: document.getElementById('statePath').value,
+          provider: providerSelect.value,
+          project: document.getElementById('project').value,
+          cloud_fixture: document.getElementById('cloudFixture').value,
+        };
+        const resp = await fetch('/api/watch/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const status = await resp.json();
+        if (!resp.ok) throw new Error(status.error || ('HTTP ' + resp.status));
+        renderWatchStatus(status);
+      } else {
+        const resp = await fetch('/api/watch/stop', { method: 'POST' });
+        const status = await resp.json();
+        if (!resp.ok) throw new Error(status.error || ('HTTP ' + resp.status));
+        renderWatchStatus(status);
+      }
+    } catch (err) {
+      errorEl.textContent = err.message;
+      toggle.checked = !toggle.checked; // revert the flip — the request failed
+    } finally {
+      watchTransitioning = false;
+    }
+  });
+
+  pollWatchStatus();
+
+  /* ---- current user ---- */
+  async function loadMe() {
+    try {
+      const resp = await fetch('/api/me');
+      const me = await resp.json();
+      const whoami = document.getElementById('whoami');
+      if (me.db_mode) {
+        whoami.textContent = `${me.email} · team: ${me.team_name} · role: ${me.role}`;
+        if (me.role === 'admin') {
+          document.getElementById('adminLink').style.display = 'inline';
+        }
+      } else {
+        whoami.textContent = '';
+      }
+    } catch (err) {
+      // /api/me failing is non-fatal for the rest of the dashboard.
+    }
+  }
+
+  loadMe();
+</script>
+</body>
+</html>
